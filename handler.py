@@ -9,6 +9,7 @@ import imageio
 import tempfile
 import requests
 import firebase_admin
+from huggingface_hub import hf_hub_download
 
 from firebase_admin import credentials, storage, firestore
 from diffusers.pipelines.ltx.pipeline_ltx_condition import (
@@ -48,15 +49,33 @@ bucket = storage.bucket()
 db = firestore.client()
 
 # -------------------------------------------------
-# Load LTX 0.9.8 Distilled
+# Load LTX 0.9.8 Distilled (2B, single-file weights)
 # -------------------------------------------------
 print("Loading LTX-Video-0.9.8-distilled model...")
 
-pipe = LTXConditionPipeline.from_pretrained(
-    "Lightricks/LTX-Video-0.9.8-2B-distilled",
-    torch_dtype=torch.float16,
-    token=os.environ["HUGGINGFACE_HUB_TOKEN"]
-)
+MODEL_CACHE_DIR = os.environ.get("MODEL_CACHE_DIR", "/app/hf_cache/models")
+MODEL_CKPT = os.path.join(MODEL_CACHE_DIR, "ltxv-2b-0.9.8-distilled.safetensors")
+
+if os.path.exists(MODEL_CKPT):
+    print(f"Loading from cached checkpoint: {MODEL_CKPT}")
+    pipe = LTXConditionPipeline.from_single_file(
+        MODEL_CKPT,
+        torch_dtype=torch.bfloat16,
+    )
+else:
+    print("Cached checkpoint not found, downloading from HuggingFace Hub...")
+    os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
+    downloaded = hf_hub_download(
+        repo_id="Lightricks/LTX-Video",
+        filename="ltxv-2b-0.9.8-distilled.safetensors",
+        local_dir=MODEL_CACHE_DIR,
+        token=os.environ["HUGGINGFACE_HUB_TOKEN"],
+    )
+    print(f"Downloaded to: {downloaded}")
+    pipe = LTXConditionPipeline.from_single_file(
+        downloaded,
+        torch_dtype=torch.bfloat16,
+    )
 
 pipe.to("cuda")
 pipe.vae.enable_tiling()
@@ -128,7 +147,9 @@ def handler(event):
             height=HEIGHT,
             num_frames=NUM_FRAMES,
             num_inference_steps=INFERENCE_STEPS,
-            guidance_scale=3.0,
+            guidance_scale=1.0,
+            decode_timestep=0.05,
+            image_cond_noise_scale=0.025,
         ).frames[0]
 
         print("Generation complete.")
