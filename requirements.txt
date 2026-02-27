@@ -1,9 +1,8 @@
 runpod
-torch
-diffusers
-transformers
+diffusers==0.30.3
+transformers>=4.40.0
 accelerate
-huggingface_hub
-xformers
-imageio[ffmpeg]
 firebase-admin
+imageio[ffmpeg]
+sentencepiece
+torch==2.3.0
