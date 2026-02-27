@@ -1,10 +1,17 @@
 import os
-
+import runpod
+import torch
+import json
+import imageio
+import firebase_admin
+from firebase_admin import credentials, storage, firestore
+from diffusers import LTXConditionPipeline
 
 print("Starting worker...")
 
-print("Checking environment variables...")
-
+# -------------------------------------------------
+# Check Required Environment Variables
+# -------------------------------------------------
 required_vars = [
     "FIREBASE_SERVICE_ACCOUNT_JSON",
     "FIREBASE_STORAGE_BUCKET",
@@ -17,18 +24,9 @@ for var in required_vars:
 
 print("Environment variables OK.")
 
-import runpod
-import torch
-import json
-import uuid
-import imageio
-import firebase_admin
-from firebase_admin import credentials, storage, firestore
-from diffusers import LTXPipeline
-
-# -----------------------------
+# -------------------------------------------------
 # Firebase Init
-# -----------------------------
+# -------------------------------------------------
 firebase_dict = json.loads(os.environ["FIREBASE_SERVICE_ACCOUNT_JSON"])
 cred = credentials.Certificate(firebase_dict)
 
@@ -39,36 +37,33 @@ firebase_admin.initialize_app(cred, {
 bucket = storage.bucket()
 db = firestore.client()
 
-# -----------------------------
-# Load Model Once (Cold Start)
-# -----------------------------
-print("Loading LTX-Video model...")
+# -------------------------------------------------
+# Load LTX 0.9.8 Distilled (Stable Version)
+# -------------------------------------------------
+print("Loading LTX-Video-0.9.8-distilled model...")
 
-pipe = LTXPipeline.from_pretrained(
-    "Lightricks/LTX-Video",
+pipe = LTXConditionPipeline.from_pretrained(
+    "Lightricks/LTX-Video-0.9.8-distilled",
     torch_dtype=torch.float16,
     token=os.environ["HUGGINGFACE_HUB_TOKEN"]
 )
 
 pipe.to("cuda")
-pipe.enable_xformers_memory_efficient_attention()
+pipe.vae.enable_tiling()
 
 print("Model loaded successfully.")
 
-# -----------------------------
-# Video Generation
-# -----------------------------
-def generate_scene(prompt, frames=120):
-    output = pipe(
-        prompt=prompt,
-        num_frames=frames,
-        guidance_scale=3.0,
-    )
-    return output.frames[0]
+# -------------------------------------------------
+# Generation Settings (Safe Defaults)
+# -------------------------------------------------
+WIDTH = 832        # must be divisible by 32
+HEIGHT = 480       # must be divisible by 32
+NUM_FRAMES = 97    # must follow 8n + 1 rule
+INFERENCE_STEPS = 30
 
-# -----------------------------
+# -------------------------------------------------
 # RunPod Handler
-# -----------------------------
+# -------------------------------------------------
 def handler(event):
     inp = event["input"]
 
@@ -85,22 +80,28 @@ def handler(event):
             f"scenes.{scene_index}.status": "processing"
         }, merge=True)
 
-        # Generate 5s chunk (120 frames @ 24fps)
-        frames = generate_scene(prompt, frames=120)
+        print("Generating video...")
 
-        file_name = f"{job_id}-scene-{scene_index}.mp4"
-        local_path = f"/tmp/{file_name}"
+        video = pipe(
+            prompt=prompt,
+            negative_prompt="worst quality, blurry, distorted, jittery",
+            width=WIDTH,
+            height=HEIGHT,
+            num_frames=NUM_FRAMES,
+            num_inference_steps=INFERENCE_STEPS,
+        ).frames[0]
 
-        imageio.mimsave(local_path, frames, fps=fps)
+        print("Generation complete.")
 
-        # Upload to Firebase Storage
+        local_path = f"/tmp/{job_id}-scene-{scene_index}.mp4"
+        imageio.mimsave(local_path, video, fps=fps)
+
         blob = bucket.blob(output_path)
         blob.upload_from_filename(local_path, content_type="video/mp4")
         blob.make_public()
 
         video_url = blob.public_url
 
-        # Update Firestore
         db.collection("directorJobs").document(job_id).set({
             f"scenes.{scene_index}": {
                 "status": "complete",
@@ -117,6 +118,8 @@ def handler(event):
         }
 
     except Exception as e:
+        print("Error:", str(e))
+
         db.collection("directorJobs").document(job_id).set({
             f"scenes.{scene_index}": {
                 "status": "error",
