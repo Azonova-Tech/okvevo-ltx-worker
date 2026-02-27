@@ -12,5 +12,4 @@ sentencepiece
 safetensors
 requests
 
-# Install GitHub diffusers LAST to override base image
-git+https://github.com/huggingface/diffusers.git
+diffusers==0.36.0
