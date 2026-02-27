@@ -6,11 +6,11 @@ ENV HF_HUB_DISABLE_PROGRESS_BARS=1
 
 COPY requirements.txt .
 
-# Remove preinstalled conflicting packages first
+# Remove preinstalled conflicting packages first, then force-reinstall
 RUN pip uninstall -y diffusers transformers accelerate || true
 
-# Install everything from requirements
-RUN pip install --no-cache-dir -r requirements.txt
+# Install everything from requirements (--force-reinstall ensures base image versions are overwritten)
+RUN pip install --no-cache-dir --force-reinstall -r requirements.txt
 
 COPY handler.py .
 
