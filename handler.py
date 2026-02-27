@@ -1,4 +1,22 @@
 import os
+
+
+print("Starting worker...")
+
+print("Checking environment variables...")
+
+required_vars = [
+    "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "FIREBASE_STORAGE_BUCKET",
+    "HUGGINGFACE_HUB_TOKEN"
+]
+
+for var in required_vars:
+    if var not in os.environ:
+        raise Exception(f"Missing environment variable: {var}")
+
+print("Environment variables OK.")
+
 import runpod
 import torch
 import json
