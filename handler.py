@@ -53,7 +53,7 @@ db = firestore.client()
 # -------------------------------------------------
 print("Loading LTX-Video-0.9.8-distilled model...")
 
-MODEL_CACHE_DIR = os.environ.get("MODEL_CACHE_DIR", "/app/hf_cache/models")
+MODEL_CACHE_DIR = os.environ.get("MODEL_CACHE_DIR", "/runpod-volume/models")
 MODEL_CKPT = os.path.join(MODEL_CACHE_DIR, "ltxv-2b-0.9.8-distilled.safetensors")
 
 if os.path.exists(MODEL_CKPT):
