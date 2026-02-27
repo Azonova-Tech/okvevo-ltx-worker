@@ -53,7 +53,7 @@ db = firestore.client()
 print("Loading LTX-Video-0.9.8-distilled model...")
 
 pipe = LTXConditionPipeline.from_pretrained(
-    "Lightricks/LTX-Video-0.9.8-distilled",
+    "Lightricks/LTX-Video-0.9.8-2B-distilled",
     torch_dtype=torch.float16,
     token=os.environ["HUGGINGFACE_HUB_TOKEN"]
 )
