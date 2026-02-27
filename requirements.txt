@@ -1,8 +1,9 @@
 runpod
-diffusers==0.30.3
-transformers>=4.40.0
+torch==2.3.0
+diffusers>=0.30.0
+transformers>=4.41.0
 accelerate
 firebase-admin
 imageio[ffmpeg]
 sentencepiece
-torch==2.3.0
+safetensors
