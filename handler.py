@@ -1,3 +1,6 @@
+import diffusers
+print("Diffusers version:", diffusers.__version__)
+print("Diffusers location:", diffusers.__file__)
 import os
 import runpod
 import torch
