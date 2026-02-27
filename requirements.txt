@@ -1,1 +1,9 @@
-
+runpod
+torch
+diffusers
+transformers
+accelerate
+huggingface_hub
+xformers
+imageio[ffmpeg]
+firebase-admin
