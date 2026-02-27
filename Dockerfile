@@ -4,6 +4,10 @@ WORKDIR /app
 
 COPY requirements.txt .
 
+# Remove preinstalled conflicting packages first
+RUN pip uninstall -y diffusers transformers accelerate || true
+
+# Install everything from requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY handler.py .
